@@ -260,11 +260,16 @@ def main
 	while true
 		feeddat = FeedChecker.new("feeds.tsv")
 		urls = feeddat.check_get_flat_urls("data/feeds/feed_data.json")
-		newchaps = ChapterHandler.new urls
-		feeddat.store("data/feeds/feed_data.json")
-		newchaps.writeall
-		newchaps.convertall
-		newchaps.kindleall
+		unless urls.empty?
+			newchaps = ChapterHandler.new urls
+			feeddat.store("data/feeds/feed_data.json")
+			newchaps.writeall
+			newchaps.convertall
+			newchaps.kindleall
+			puts newchaps.titles
+		else
+			puts "Nothing doing"
+		end
 		sleep 120
 	end
 end
