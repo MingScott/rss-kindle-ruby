@@ -1,4 +1,4 @@
-#! /usr/bin/ruby
+#!/usr/bin/ruby
 
 require "nokogiri"
 require "open-uri"
@@ -263,3 +263,5 @@ def main
 		sleep 120
 	end
 end
+
+main
