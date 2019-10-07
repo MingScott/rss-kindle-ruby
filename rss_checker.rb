@@ -57,6 +57,7 @@ end
 
 class Chapter
 	def initialize(url)
+		puts url
 		@doc = Nokogiri::HTML(open(url))
 	end
 	def to_s
@@ -253,10 +254,14 @@ end
 
 
 def main
+	if get_json("data/feeds/feed_data.json").length != FeedChecker.new("feeds.tsv").to_a.length
+		FeedChecker.new("feeds.tsv").store("data/feeds/feed_data.json")
+	end
 	while true
-		urls = FeedChecker.new("feeds.tsv").check_get_flat_urls("data/feeds/feed_data.json")
+		feeddat = FeedChecker.new("feeds.tsv")
+		urls = feeddat.check_get_flat_urls("data/feeds/feed_data.json")
 		newchaps = ChapterHandler.new urls
-		newchaps.store("data/feeds/feed_data.json")
+		feeddat.store("data/feeds/feed_data.json")
 		newchaps.writeall
 		newchaps.convertall
 		newchaps.kindleall
