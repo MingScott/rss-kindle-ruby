@@ -1,3 +1,5 @@
+#! /usr/bin/ruby
+
 require "nokogiri"
 require "open-uri"
 require "csv"
@@ -76,16 +78,16 @@ class Chapter
 		self.title.gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
 	end
 	def write
-		File.new('data/' + self.cleantitle + '.html', 'w').syswrite self.text.to_s
+		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite self.text.to_s
 	end
 	def convert
 		title = self.cleantitle
-		`ebook-convert "data/#{title}.html" "data/#{title}.mobi" --title "#{self.title}"  --authors "#{self.author}"`
+		`ebook-convert "data/html/#{title}.html" "data/mobi/#{title}.mobi" --title "#{self.title}"  --authors "#{self.author}"`
 		return true
 	end
 	def kindle
 		title = self.cleantitle
-		puts system("kindle data/#{title}.mobi")
+		system("kindle data/mobi/#{title}.mobi")
 	end
 end
 
@@ -249,28 +251,15 @@ class ChapterHandler
 	end
 end
 
-feeds = FeedChecker.new('feeds.tsv')
-arr = feeds.to_a
-mangled = Array.new
-arr.each do |feed|
-	mangled << feed[1..feed.length-1]
+
+def main
+	while true
+		urls = FeedChecker.new("feeds.tsv").check_get_flat_urls("data/feeds/feed_data.json")
+		newchaps = ChapterHandler.new urls
+		newchaps.store("data/feeds/feed_data.json")
+		newchaps.writeall
+		newchaps.convertall
+		newchaps.kindleall
+		sleep 120
+	end
 end
-
-store_json("mangled.json", mangled)
-
-foo = ChapterHandler.new FeedChecker.new("feeds.tsv").check_get_flat_urls("mangled.json")
-foo.writeall
-foo.convertall
-foo.kindleall
-
-# def main
-# 	while true
-# 		urls = FeedChecker.new("feeds.tsv").check_get_flat_urls("data/feed_data.json")
-# 		newchaps = ChapterHandler.new urls
-# 		newchaps.store("data/feed_data.json")
-# 		newchaps.writeall
-# 		newchaps.convertall
-# 		newchaps.kindleall
-# 		sleep 60
-# 	end
-# end
