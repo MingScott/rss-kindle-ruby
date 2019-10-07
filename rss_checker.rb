@@ -1,6 +1,7 @@
 require "nokogiri"
 require "open-uri"
 require "csv"
+require "ostruct"
 
 class Feed
 	def initialize(url)
@@ -27,8 +28,18 @@ class Feed
 		links
 	end
 
+	def dates
+		dates = Array.new
+		self.item.css("pubDate").each { |date| dates << date.content }
+	end
+
 	def to_h
 		Hash[self.titles.zip(self.urls)]
+	end
+
+	def to_struct
+		feed_struct = Struct.new(:titles,:urls, :dates, :name)
+		feed_struct.new(self.titles, self.urls, self.dates, self.name)
 	end
 end
 
@@ -93,12 +104,13 @@ feedlist = FeedList.new('/home/ming/Projects/RSSrb/feeds.tsv').to_h
 class FeedChecker < FeedList
 	def initialize(tsv)
 		@feeds = CSV.read(tsv, { :col_sep => "\t" })
+		@feed_struct = Struct.new(:titles,:urls,:name)
 	end
 
 	def get
 		feeds = Array.new
 		self.to_h.keys.each do |title|
-			feeds << Feed.new(self.to_h[title]).to_h
+			feeds << Feed.new(self.to_h[title]).to_struct
 		end
 		feeds
 	end
@@ -106,9 +118,10 @@ class FeedChecker < FeedList
 		feeds = self.get
 		@newfeeds = Array.new
 		for ii in 0..feeds.length-1
-			var = feeds[ii].keys - oldfeeds[ii].keys
-			@newfeeds[ii] = unless var == []
-				Hash[var.zip(feeds[ii].values_at(*var))]
+			url = feeds[ii].urls  - oldfeeds[ii].urls
+			title = feeds[ii].titles - oldfeeds[ii].titles
+			@newfeeds[ii] = unless url == []
+				@feed_struct.new(title,url,feeds[ii].name)
 			else
 				[]
 			end
@@ -119,6 +132,7 @@ end
 
 feeds = FeedChecker.new('/home/ming/Projects/RSSrb/feeds.tsv')
 mangled = feeds.get
-mangled[0] = mangled[0].to_a[1..mangled[0].length-1].to_h
-mangled[1] = mangled[1].to_a[1..mangled[1 ].length-1].to_h
-puts feeds.newfeeds(mangled)
+mangled[0]["titles"] = mangled[0]["titles"][1..mangled[0]["titles"].length-1]
+mangled[0]["urls"] = mangled[0]["urls"][1..mangled[0]["urls"].length-1]
+puts feeds.newfeeds(mangled)[0]["titles"]
+
