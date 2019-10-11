@@ -4,6 +4,8 @@ require "nokogiri"
 require "open-uri"
 require "csv"
 require "json"
+require "pp"
+require "pathname"
 
 class Feed
 	def initialize(url)
@@ -37,7 +39,11 @@ class Feed
 	end
 
 	def to_a
-		arr = [self.titles, self.urls, self.dates]
+		namearr = Array.new
+		for ii in 0..self.titles.length-1
+			namearr[ii] = self.name
+		end
+		arr = [self.titles, self.urls, self.dates, namearr]
 		newarr = Array.new(self.titles.length) { Array.new(arr.length,0) }
 		for x in 0..newarr.length-1
 			for y in 0..arr.length-1
@@ -56,14 +62,18 @@ class Feed
 end
 
 class Chapter
-	def initialize(url)
+	def initialize(url, name)
 		@doc = Nokogiri::HTML(open(url))
+		@name = name
 	end
 	def to_s
 		puts @doc.to_s
 	end
 	def doc
 		@doc
+	end
+	def name
+		@name
 	end
 	def title
 		@doc.css('h1').first.content
@@ -75,10 +85,13 @@ class Chapter
 		@doc
 	end
 	def cleantitle
-		self.title.gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
+		@name + ": " self.title.gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
 	end
 	def write
-		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite self.text.to_s
+		text = "<h1>" + self.name + "</h1>\n"
+		text << "<h1>" + self.cleantitle + "</h1>\n"
+		text << self.text.to_s
+		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite text
 	end
 	def convert
 		title = self.cleantitle
@@ -175,6 +188,9 @@ class FeedChecker < FeedList
 	def check_get_flat_urls(path)
 		FlatFeedArray.new(self.check(path)).urls
 	end
+	def check_get_flat_names(path)
+		FlatFeedArray.new(self.check(path)).names
+	end
 end
 
 def get_json(path)
@@ -190,8 +206,8 @@ end
 
 class FlatFeedArray
 	def initialize(arr)
-		@flatarray = Array.new(3){Array.new}
-		for ii in 0..2
+		@flatarray = Array.new(4){Array.new}
+		for ii in 0..3
 			arr.each do |x|
 				x.each do |y|
 					@flatarray[ii] << y[ii]
@@ -208,24 +224,29 @@ class FlatFeedArray
 	def dates
 		@flatarray[2]
 	end
+	def names
+		@flatarray[3]
+	end
 	def to_a
 		@flatarray
 	end
 end
 
 class ChapterHandler
-	def initialize(urls)
+	def initialize(urls, names)
 		@chaps = Array.new
 		if not urls.empty?
-			urls.each do |link|
+			for ii in 0..urls.length-1
+				link = urls[ii]
+				sname = names[ii]
 				if link.include?("practicalguidetoevil")
-					@chaps << PgteChapter.new(link)
+					@chaps << PgteChapter.new(link, sname)
 				elsif link.include?("royalroad")
-					@chaps << RRChapter.new(link)
+					@chaps << RRChapter.new(link, sname)
 				elsif link.include?("parahumans")
-					@chaps << WardChapter.new(link)
+					@chaps << WardChapter.new(link, sname)
 				else
-					@chaps << Chapter.new(link)
+					@chaps << Chapter.new(link, sname)
 				end
 			end
 
@@ -236,9 +257,15 @@ class ChapterHandler
 		@chaps.each {|chap| out << chap.title }
 		out
 	end
+	def names
+		out = Array.new
+		@chaps.each {|chap| out << chap.name }
+		out
+	end
 	def texts
 		out = Array.new
-		@chaps.each {|chap| out < chap.text }
+		@chaps.each {|chap| out << chap.text }
+		out
 	end
 	def writeall
 		@chaps.each {|chap| chap.write }
@@ -254,21 +281,33 @@ end
 
 def main
 	puts "Initializing..."
-	puts FeedList.new("feeds.tsv").to_a
+	puts "====Feeds====="
+	FeedList.new("feeds.tsv").to_a.each do |feed|
+		puts feed
+		puts ""
+	end
+	puts "======"
 	while true
+		unless Pathname.new("data/feeds/feed_data.json").exist?
+			FeedChecker.new("feeds.tsv").store("data/feeds/feed_data.json")
+			puts "No pre-existing stored feeds, refreshing..."
+		end
 		if get_json("data/feeds/feed_data.json").length != FeedChecker.new("feeds.tsv").to_a.length
 			FeedChecker.new("feeds.tsv").store("data/feeds/feed_data.json")
 			puts "Length of stored feeds does not match list of feeds, refreshing..."
 		end
 		feeddat = FeedChecker.new("feeds.tsv")
 		urls = feeddat.check_get_flat_urls("data/feeds/feed_data.json")
+		names = feeddat.check_get_flat_names("data/feeds/feed_data.json")
 		unless urls.empty?
-			newchaps = ChapterHandler.new urls
+			newchaps = ChapterHandler.new(urls,names)
 			feeddat.store("data/feeds/feed_data.json")
-			output = "------"
-			output << Time.now.inspect
-			output << newchaps.titles
-			output << "------"
+			output = "------\n"
+			output << Time.now.inspect + "\n"
+			for ii in 0..newchaps.titles.length-1
+            	puts newchaps.names[ii] + ": " + newchaps.titles[ii]
+            end
+			output << "------\n"
 			puts output
 			newchaps.writeall
 			puts "Writing..."
