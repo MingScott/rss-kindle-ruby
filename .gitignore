@@ -1,4 +1,7 @@
 /data/html/*.html
 /data/mobi/*.mobi
 misc/*
-maildetails.txt
+uname.txt
+password.txt
+kindle_email.txt
+mangled.json

@@ -7,6 +7,118 @@ require "json"
 require "pp"
 require "pathname"
 require "fileutils"
+require "mail"
+
+class ChapterHandler
+	def initialize(urls, names)
+		@chaps = Array.new
+		if not urls.empty?
+			for ii in 0..urls.length-1
+				link = urls[ii]
+				sname = names[ii]
+				if link.include?("practicalguidetoevil")
+					@chaps << PgteChapter.new(link, sname)
+				elsif link.include?("royalroad")
+					@chaps << RRChapter.new(link, sname)
+				elsif link.include?("parahumans")
+					@chaps << WardChapter.new(link, sname)
+				else
+					@chaps << Chapter.new(link, sname)
+				end
+			end
+
+		end
+	end
+	def titles
+		out = Array.new
+		@chaps.each {|chap| out << chap.title }
+		out
+	end
+	def names
+		out = Array.new
+		@chaps.each {|chap| out << chap.name }
+		out
+	end
+	def texts
+		out = Array.new
+		@chaps.each {|chap| out << chap.text }
+		out
+	end
+	def writeall
+		@chaps.each {|chap| chap.write }
+	end
+	def convertall
+		@chaps.each { |chap| chap.convert }
+	end
+	def kindleall
+		@chaps.each { |chap| chap.kindle }
+	end # Add any new chapter classes for parsing new webpages to the logic here
+end
+
+### Custom chapter handler classes
+
+class PgteChapter < Chapter
+	def title
+		@doc.css('h1.entry-title').first.content
+	end
+	def text
+		@doc.css('div.entry-content').first.css('p')
+	end
+	def author
+		"ErraticErrata"
+	end
+end
+
+class WardChapter < Chapter
+	def title
+		@doc.css('h1.entry-title').first.content
+	end
+
+	def text
+		content = @doc.css('div.entry-content').first.css('p')
+		content[1..content.length-2]
+	end
+
+	def author
+		"Wildbow"
+	end
+end
+
+class RRChapter < Chapter
+	def title
+		@doc.css('h1').first.content
+	end
+	def text
+		chapter = @doc.css("div.chapter-inner.chapter-content").first
+		chapter_content = chapter.to_s
+		chapter.css("table").each { |table| chapter_content = chapter_content.gsub(table.to_s,table.css("p").to_s) }
+		Nokogiri::HTML(chapter_content)
+	end
+end
+
+###
+
+class KindleEmail
+	def send_file(fname)
+		gmx_options = { :address              => "mail.gmx.com",
+                :port                 => 587,
+                :user_name            => File.read('uname.txt'),
+                :password             => File.read('password.txt'),
+                :authentication       => 'plain',
+                :enable_starttls_auto => true  }
+
+		Mail.defaults do
+			delivery_method :smtp, gmx_options
+		end
+
+		Mail.deliver do
+		  to File.read('kindle_email.txt')
+		  from File.read('uname.txt')
+		  subject ' '
+		  add_file fname
+		end
+	end
+end
 
 class Feed
 	def initialize(url)
@@ -89,8 +201,9 @@ class Chapter
 		(self.name + "_" + self.title).gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
 	end
 	def write
-		text = "<h1>" + self.name + "</h1>\n"
-		text << "<h2>" + self.title + "</h2>\n"
+		text = "<h2>" + self.name + "</h2>\n"
+		text << "<i>" + Time.now.inspect + "</i>\n"
+		text << "<h1>" + self.title + "</h1>\n"
 		text << self.text.to_s
 		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite text
 	end
@@ -100,46 +213,11 @@ class Chapter
 	end
 	def kindle
 		title = self.cleantitle
-		system("kindle data/mobi/#{title}.mobi")
-	end
-end
-
-class PgteChapter < Chapter
-	def title
-		@doc.css('h1.entry-title').first.content
-	end
-	def text
-		@doc.css('div.entry-content').first.css('p')
-	end
-	def author
-		"ErraticErrata"
-	end
-end
-
-class WardChapter < Chapter
-	def title
-		@doc.css('h1.entry-title').first.content
-	end
-
-	def text
-		content = @doc.css('div.entry-content').first.css('p')
-		content[1..content.length-2]
-	end
-
-	def author
-		"Wildbow"
-	end
-end
-
-class RRChapter < Chapter
-	def title
-		@doc.css('h1').first.content
-	end
-	def text
-		chapter = @doc.css("div.chapter-inner.chapter-content").first
-		chapter_content = chapter.to_s
-		chapter.css("table").each { |table| chapter_content = chapter_content.gsub(table.to_s,table.css("p").to_s) }
-		Nokogiri::HTML(chapter_content)
+		if File.exist?('data/mobi/' + title + '.mobi')
+			KindleEmail.new.send_file('data/mobi/' + title + '.mobi')
+		else
+			puts "nope"
+		end
 	end
 end
 
@@ -232,51 +310,6 @@ class FlatFeedArray
 	end
 end
 
-class ChapterHandler
-	def initialize(urls, names)
-		@chaps = Array.new
-		if not urls.empty?
-			for ii in 0..urls.length-1
-				link = urls[ii]
-				sname = names[ii]
-				if link.include?("practicalguidetoevil")
-					@chaps << PgteChapter.new(link, sname)
-				elsif link.include?("royalroad")
-					@chaps << RRChapter.new(link, sname)
-				elsif link.include?("parahumans")
-					@chaps << WardChapter.new(link, sname)
-				else
-					@chaps << Chapter.new(link, sname)
-				end
-			end
-
-		end
-	end
-	def titles
-		out = Array.new
-		@chaps.each {|chap| out << chap.title }
-		out
-	end
-	def names
-		out = Array.new
-		@chaps.each {|chap| out << chap.name }
-		out
-	end
-	def texts
-		out = Array.new
-		@chaps.each {|chap| out << chap.text }
-		out
-	end
-	def writeall
-		@chaps.each {|chap| chap.write }
-	end
-	def convertall
-		@chaps.each { |chap| chap.convert }
-	end
-	def kindleall
-		@chaps.each { |chap| chap.kindle }
-	end
-end
 
 
 def main
