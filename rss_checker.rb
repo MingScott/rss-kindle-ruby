@@ -55,6 +55,53 @@ class ChapterHandler
 	end # Add any new chapter classes for parsing new webpages to the logic here #edit the control flow in here if you make custom classes
 end
 
+class Chapter
+	def initialize(url, name)
+		@doc = Nokogiri::HTML(open(url))
+		@name = name
+	end
+	def to_s
+		puts @doc.to_s
+	end
+	def doc
+		@doc
+	end
+	def name
+		@name
+	end
+	def title
+		@doc.css('h1').first.content
+	end
+	def author
+		"Unknown"
+	end
+	def text
+		@doc
+	end
+	def cleantitle
+		(self.name + "_" + self.title).gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
+	end
+	def write
+		text = "<h2>" + self.name + "</h2>\n"
+		text << "<i>" + Time.now.inspect + "</i>\n"
+		text << "<h1>" + self.title + "</h1>\n"
+		text << self.text.to_s
+		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite text
+	end
+	def convert
+		title = self.cleantitle
+		`ebook-convert "data/html/#{title}.html" "data/mobi/#{title}.mobi" --title "#{@name + ": " + self.title}"  --authors "#{self.author}"`
+	end
+	def kindle
+		title = self.cleantitle
+		if File.exist?('data/mobi/' + title + '.mobi')
+			KindleEmail.new.send_file('data/mobi/' + title + '.mobi')
+		else
+			puts "nope"
+		end
+	end
+end
+
 ### Custom chapter handler classes
 
 class PgteChapter < Chapter
@@ -174,52 +221,7 @@ class Feed
 	end
 end
 
-class Chapter
-	def initialize(url, name)
-		@doc = Nokogiri::HTML(open(url))
-		@name = name
-	end
-	def to_s
-		puts @doc.to_s
-	end
-	def doc
-		@doc
-	end
-	def name
-		@name
-	end
-	def title
-		@doc.css('h1').first.content
-	end
-	def author
-		"Unknown"
-	end
-	def text
-		@doc
-	end
-	def cleantitle
-		(self.name + "_" + self.title).gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
-	end
-	def write
-		text = "<h2>" + self.name + "</h2>\n"
-		text << "<i>" + Time.now.inspect + "</i>\n"
-		text << "<h1>" + self.title + "</h1>\n"
-		text << self.text.to_s
-		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite text
-	end
-	def convert
-		title = self.cleantitle
-		`ebook-convert "data/html/#{title}.html" "data/mobi/#{title}.mobi" --title "#{@name + ": " + self.title}"  --authors "#{self.author}"`
-	end
-	def kindle
-		title = self.cleantitle
-		if File.exist?('data/mobi/' + title + '.mobi')
-			KindleEmail.new.send_file('data/mobi/' + title + '.mobi')
-		else
-			puts "nope"
-		end
-	end
-end
+
 
 class FeedList
 	def initialize(tsv)
