@@ -1,7 +1,7 @@
 require "nokogiri"
 require "open-uri"
 require "csv"
-require "ostruct"
+require "json"
 
 class Feed
 	def initialize(url)
@@ -31,15 +31,25 @@ class Feed
 	def dates
 		dates = Array.new
 		self.item.css("pubDate").each { |date| dates << date.content }
+		dates
 	end
 
-	def to_h
-		Hash[self.titles.zip(self.urls)]
+	def to_a
+		arr = [self.titles, self.urls, self.dates]
+		newarr = Array.new(self.titles.length) { Array.new(arr.length,0) }
+		for x in 0..newarr.length-1
+			for y in 0..arr.length-1
+				newarr[x][y] = arr[y][x]
+			end
+		end
+		newarr
 	end
 
-	def to_struct
-		feed_struct = Struct.new(:titles,:urls, :dates, :name)
-		feed_struct.new(self.titles, self.urls, self.dates, self.name)
+	def store(path)
+		File.open(path,"w") do |f|
+			f.write JSON.pretty_generate(self.to_a)
+			f.close
+		end
 	end
 end
 
@@ -53,6 +63,30 @@ class Chapter
 	def doc
 		@doc
 	end
+	def title
+		@doc.css('h1').first.content
+	end
+	def author
+		"Unknown"
+	end
+	def text
+		@doc
+	end
+	def cleantitle
+		self.title.gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
+	end
+	def write
+		File.new('data/' + self.cleantitle + '.html', 'w').syswrite self.text.to_s
+	end
+	def convert
+		title = self.cleantitle
+		`ebook-convert "data/#{title}.html" "data/#{title}.mobi" --title "#{self.title}"  --authors "#{self.author}"`
+		return true
+	end
+	def kindle
+		title = self.cleantitle
+		puts system("kindle data/#{title}.mobi")
+	end
 end
 
 class PgteChapter < Chapter
@@ -61,6 +95,9 @@ class PgteChapter < Chapter
 	end
 	def text
 		@doc.css('div.entry-content').first.css('p')
+	end
+	def author
+		"ErraticErrata"
 	end
 end
 
@@ -72,6 +109,10 @@ class WardChapter < Chapter
 	def text
 		content = @doc.css('div.entry-content').first.css('p')
 		content[1..content.length-2]
+	end
+
+	def author
+		"Wildbow"
 	end
 end
 
@@ -99,40 +140,137 @@ class FeedList
 	end
 end
 
-feedlist = FeedList.new('/home/ming/Projects/RSSrb/feeds.tsv').to_h
-
 class FeedChecker < FeedList
 	def initialize(tsv)
 		@feeds = CSV.read(tsv, { :col_sep => "\t" })
-		@feed_struct = Struct.new(:titles,:urls,:name)
-	end
-
-	def get
-		feeds = Array.new
-		self.to_h.keys.each do |title|
-			feeds << Feed.new(self.to_h[title]).to_struct
+		@feedarray = Array.new
+		for ii in 0..@feeds.length-1
+			@feedarray[ii] = Feed.new(@feeds[ii][1]).to_a
 		end
-		feeds
 	end
 	def newfeeds (oldfeeds)
-		feeds = self.get
-		@newfeeds = Array.new
-		for ii in 0..feeds.length-1
-			url = feeds[ii].urls  - oldfeeds[ii].urls
-			title = feeds[ii].titles - oldfeeds[ii].titles
-			@newfeeds[ii] = unless url == []
-				@feed_struct.new(title,url,feeds[ii].name)
-			else
-				[]
-			end
+		newfeeds = Array.new
+		for ii in 0..@feedarray.length-1
+			newfeeds << @feedarray[ii] - oldfeeds[ii]
 		end
-		@newfeeds
+		newfeeds
+	end
+	def to_a
+		@feedarray
+	end
+	def to_h
+		raise ArgumentError.new ("can't hash this, baby")
+	end
+	def store(path)
+		File.open(path,"w") do |f|
+			f.write JSON.pretty_generate(self.to_a)
+			f.close
+		end
+	end
+	def check(path)
+		self.newfeeds(get_json(path))
+	end
+	def check_get_flat_urls(path)
+		FlatFeedArray.new(self.check(path)).urls
 	end
 end
 
-feeds = FeedChecker.new('/home/ming/Projects/RSSrb/feeds.tsv')
-mangled = feeds.get
-mangled[0]["titles"] = mangled[0]["titles"][1..mangled[0]["titles"].length-1]
-mangled[0]["urls"] = mangled[0]["urls"][1..mangled[0]["urls"].length-1]
-puts feeds.newfeeds(mangled)[0]["titles"]
+def get_json(path)
+	JSON.parse(File.read(path))
+end
 
+def store_json(path, obj)
+	File.open(path,"w") do |f|
+		f.write JSON.pretty_generate(obj)
+		f.close
+	end
+end
+
+class FlatFeedArray
+	def initialize(arr)
+		@flatarray = Array.new(3){Array.new}
+		for ii in 0..2
+			arr.each do |x|
+				x.each do |y|
+					@flatarray[ii] << y[ii]
+				end
+			end
+		end
+	end
+	def titles
+		@flatarray[0]
+	end
+	def urls
+		@flatarray[1]
+	end
+	def dates
+		@flatarray[2]
+	end
+	def to_a
+		@flatarray
+	end
+end
+
+class ChapterHandler
+	def initialize(urls)
+		@chaps = Array.new
+		if not urls.empty?
+			urls.each do |link|
+				if link.include?("practicalguidetoevil")
+					@chaps << PgteChapter.new(link)
+				elsif link.include?("royalroad")
+					@chaps << RRChapter.new(link)
+				elsif link.include?("parahumans")
+					@chaps << WardChapter.new(link)
+				else
+					@chaps << Chapter.new(link)
+				end
+			end
+
+		end
+	end
+	def titles
+		out = Array.new
+		@chaps.each {|chap| out << chap.title }
+		out
+	end
+	def texts
+		out = Array.new
+		@chaps.each {|chap| out < chap.text }
+	end
+	def writeall
+		@chaps.each {|chap| chap.write }
+	end
+	def convertall
+		@chaps.each { |chap| chap.convert }
+	end
+	def kindleall
+		@chaps.each { |chap| chap.kindle }
+	end
+end
+
+feeds = FeedChecker.new('feeds.tsv')
+arr = feeds.to_a
+mangled = Array.new
+arr.each do |feed|
+	mangled << feed[1..feed.length-1]
+end
+
+store_json("mangled.json", mangled)
+
+foo = ChapterHandler.new FeedChecker.new("feeds.tsv").check_get_flat_urls("mangled.json")
+foo.writeall
+foo.convertall
+foo.kindleall
+
+# def main
+# 	while true
+# 		urls = FeedChecker.new("feeds.tsv").check_get_flat_urls("data/feed_data.json")
+# 		newchaps = ChapterHandler.new urls
+# 		newchaps.store("data/feed_data.json")
+# 		newchaps.writeall
+# 		newchaps.convertall
+# 		newchaps.kindleall
+# 		sleep 60
+# 	end
+# end
