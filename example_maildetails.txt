@@ -1,0 +1,5 @@
+mail.gmx.com
+587
+localhost
+youraccount@gmx.com
+PASSWORD_HERE
