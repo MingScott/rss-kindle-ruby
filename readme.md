@@ -1,15 +1,11 @@
 # rss-kindle-ruby
 
-Personal project for parsing web serial content and sending to kindle.
+WIP personal project for parsing web serial content and sending to kindle. Still reliant on system-specific bash scripts to send to kindle.
 
-## Dependencies:
-### gems
+Dependencies:
 * nokogiri
-* open-uri
-* mail
-
-### external programs
 * calibre
+* open-uri
 
 # Using this script
 
