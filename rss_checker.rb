@@ -282,6 +282,7 @@ end
 def main
 	puts "Initializing..."
 	unless Pathname.new("data/html").exist? && Pathname.new("data/mobi").exist?
+		puts "Building data directories..."
 		FileUtils.mkdir_p "data/html"
 		FileUtils.mkdir_p "data/mobi"
 	end
@@ -290,7 +291,7 @@ def main
 		puts feed
 		puts ""
 	end
-	puts "======"
+	puts "=============="
 	while true
 		unless Pathname.new("feed_data.json").exist?
 			FeedChecker.new("feeds.tsv").store("feed_data.json")
@@ -310,7 +311,7 @@ def main
 			output = "------\n"
 			output << Time.now.inspect + "\n"
 			for ii in 0..newchaps.titles.length-1
-            	output << newchaps.names[ii] + ": " + newchaps.titles[ii] + "\n"
+            	output << newchaps.names[ii] + " - " + newchaps.titles[ii] + "\n"
             end
 			output << "------\n"
 			puts output

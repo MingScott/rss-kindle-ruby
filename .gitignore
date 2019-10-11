@@ -1,2 +1,3 @@
-/data/*
-testing.rb
+/data/html/*.html
+/data/mobi/*.mobi
+misc/*
