@@ -52,7 +52,7 @@ class ChapterHandler
 	end
 	def kindleall
 		@chaps.each { |chap| chap.kindle }
-	end # Add any new chapter classes for parsing new webpages to the logic here
+	end # Add any new chapter classes for parsing new webpages to the logic here #edit the control flow in here if you make custom classes
 end
 
 ### Custom chapter handler classes
