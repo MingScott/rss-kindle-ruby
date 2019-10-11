@@ -6,6 +6,7 @@ require "csv"
 require "json"
 require "pp"
 require "pathname"
+require "fileutils"
 
 class Feed
 	def initialize(url)
@@ -280,6 +281,10 @@ end
 
 def main
 	puts "Initializing..."
+	unless Pathname.new("data/html").exist? && Pathname.new("data/mobi").exist?
+		FileUtils.mkdir_p "data/html"
+		FileUtils.mkdir_p "data/mobi"
+	end
 	puts "====Feeds====="
 	FeedList.new("feeds.tsv").to_a.each do |feed|
 		puts feed
@@ -287,21 +292,21 @@ def main
 	end
 	puts "======"
 	while true
-		unless Pathname.new("data/feeds/feed_data.json").exist?
-			FeedChecker.new("feeds.tsv").store("data/feeds/feed_data.json")
+		unless Pathname.new("feed_data.json").exist?
+			FeedChecker.new("feeds.tsv").store("feed_data.json")
 			puts "No pre-existing stored feeds, refreshing..."
 		end
-		if get_json("data/feeds/feed_data.json").length != FeedChecker.new("feeds.tsv").to_a.length
-			FeedChecker.new("feeds.tsv").store("data/feeds/feed_data.json")
+		if get_json("feed_data.json").length != FeedChecker.new("feeds.tsv").to_a.length
+			FeedChecker.new("feeds.tsv").store("feed_data.json")
 			puts "Length of stored feeds does not match list of feeds, refreshing..."
 		end
 
 		feeddat = FeedChecker.new("feeds.tsv")
-		urls = feeddat.check_get_flat_urls("data/feeds/feed_data.json")
-		names = feeddat.check_get_flat_names("data/feeds/feed_data.json")
+		urls = feeddat.check_get_flat_urls("feed_data.json")
+		names = feeddat.check_get_flat_names("feed_data.json")
 		unless urls.empty?
 			newchaps = ChapterHandler.new(urls,names)
-			feeddat.store("data/feeds/feed_data.json")
+			feeddat.store("feed_data.json")
 			output = "------\n"
 			output << Time.now.inspect + "\n"
 			for ii in 0..newchaps.titles.length-1
