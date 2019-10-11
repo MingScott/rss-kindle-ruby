@@ -85,18 +85,17 @@ class Chapter
 		@doc
 	end
 	def cleantitle
-		@name + ": " self.title.gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
+		(self.name + "_" + self.title).gsub(/\u00A0/, ' ').gsub(/\u2013/, '-').gsub(' ','_').gsub(':','_')
 	end
 	def write
 		text = "<h1>" + self.name + "</h1>\n"
-		text << "<h1>" + self.cleantitle + "</h1>\n"
+		text << "<h2>" + self.title + "</h2>\n"
 		text << self.text.to_s
 		File.new('data/html/' + self.cleantitle + '.html', 'w').syswrite text
 	end
 	def convert
 		title = self.cleantitle
-		`ebook-convert "data/html/#{title}.html" "data/mobi/#{title}.mobi" --title "#{self.title}"  --authors "#{self.author}"`
-		return true
+		`ebook-convert "data/html/#{title}.html" "data/mobi/#{title}.mobi" --title "#{@name + ": " + self.title}"  --authors "#{self.author}"`
 	end
 	def kindle
 		title = self.cleantitle
@@ -296,6 +295,7 @@ def main
 			FeedChecker.new("feeds.tsv").store("data/feeds/feed_data.json")
 			puts "Length of stored feeds does not match list of feeds, refreshing..."
 		end
+
 		feeddat = FeedChecker.new("feeds.tsv")
 		urls = feeddat.check_get_flat_urls("data/feeds/feed_data.json")
 		names = feeddat.check_get_flat_names("data/feeds/feed_data.json")
@@ -305,7 +305,7 @@ def main
 			output = "------\n"
 			output << Time.now.inspect + "\n"
 			for ii in 0..newchaps.titles.length-1
-            	puts newchaps.names[ii] + ": " + newchaps.titles[ii]
+            	output << newchaps.names[ii] + ": " + newchaps.titles[ii] + "\n"
             end
 			output << "------\n"
 			puts output
