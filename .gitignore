@@ -4,4 +4,4 @@ misc/*
 uname.txt
 password.txt
 kindle_email.txt
-mangled.json
+*.json
