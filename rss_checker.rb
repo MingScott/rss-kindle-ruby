@@ -123,7 +123,7 @@ class WardChapter < Chapter
 
 	def text
 		content = @doc.css('div.entry-content').first.css('p')
-		content[1..content.length-2]
+		content[1..content.length-1]
 	end
 
 	def author
@@ -221,8 +221,6 @@ class Feed
 	end
 end
 
-
-
 class FeedList
 	def initialize(tsv)
 		@feeds = CSV.read(tsv, { :col_sep => "\t" })
@@ -311,8 +309,6 @@ class FlatFeedArray
 		@flatarray
 	end
 end
-
-
 
 def main
 	puts "Initializing..."
